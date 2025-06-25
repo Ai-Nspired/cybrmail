@@ -5,9 +5,114 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CybrMail</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Add marked.js for Markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    /* Melody lock modal styles (can be adapted for your theme) */
+    #melody-lock {
+      background: rgba(10,23,35,0.90);
+      border-radius: 18px;
+      box-shadow: 0 10px 32px rgba(0,0,0,0.23);
+      border: 1.5px solid #3377ff88;
+      padding: 2.2rem 2rem 2rem 2rem;
+      margin: 1rem auto 1.5rem auto;
+      max-width: 410px;
+      color: #f3fbff;
+      display: none;
+      animation: enter 0.6s cubic-bezier(.7,.36,0,1.17);
+      z-index: 100;
+    }
+    #melody-lock h2 {
+      text-align: center;
+      font-weight: 900;
+      font-size: 1.3rem;
+      margin-bottom: 1.2rem;
+      color: #0ff1ce;
+    }
+    .melody-key {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(145deg,#eaf6ff 70%,#b4e2fa 100%);
+      border: 2.3px solid #3377ff;
+      color: #222;
+      font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 1.13em;
+      cursor: pointer;
+      margin: 0 2px;
+      user-select: none;
+      margin-bottom: 8px;
+    }
+    .melody-key.active, .melody-key:active {
+      background: #ffe600;
+      color: #0055ff;
+      transform: scale(1.08);
+    }
+    .melody-pill {
+      display: inline-block;
+      background: #00eaff;
+      color: #014;
+      font-weight: 700;
+      font-size: 1em;
+      padding: 3px 10px;
+      border-radius: 18px;
+      margin: 0 2px 2px 2px;
+      box-shadow: 0 1px 5px #00eaff33;
+    }
+    #melody-bar {
+      margin: 10px 0 10px 0;
+      min-height: 22px;
+    }
+    #melody-status {
+      color: #ff5050;
+      font-weight: bold;
+      margin-top: 10px;
+      min-height: 22px;
+    }
+    /* Markdown preview styling */
+    #markdown-preview {
+      background: rgba(19, 33, 52, 0.38);
+      border: 1.5px solid #3377ff33;
+      border-radius: 10px;
+      color: #f3fbff;
+      font-size: 0.98rem;
+      margin-top: 10px;
+      padding: 1rem;
+      min-height: 80px;
+      white-space: pre-wrap;
+      font-family: 'JetBrains Mono', 'Menlo', 'monospace', monospace;
+    }
+    .content-length {
+      color: #0ff1ce;
+      font-size: 0.93em;
+      margin-top: 8px;
+      text-align: right;
+      opacity: 0.75;
+    }
+    .content-length.warning {
+      color: #ff5d8f;
+    }
+  </style>
 </head>
 <body>
-  <main>
+  <!-- Melody Lock Modal (hidden until unlocked) -->
+  <div id="melody-lock">
+    <h2>🔒 Melody Lock</h2>
+    <div style="background:rgba(0,90,255,0.09);color:#afe9ff;font-size:1.08em;border-radius:7px;padding:10px 14px;margin-bottom:16px;">
+      <b>Step 1:</b> Play your secret melody or paste its pattern.<br>
+      <b>Step 2:</b> Click <b>Unlock</b>.
+    </div>
+    <div id="melody-piano"></div>
+    <button id="melody-clear" style="margin-top:10px;margin-bottom:5px;">Clear Melody</button>
+    <button id="melody-unlock" style="margin-left:10px;">Unlock</button>
+    <div id="melody-bar"></div>
+    <div style="margin-top:10px;">
+      <input type="text" id="importMelodyInput" placeholder="Pattern e.g. 40-43-45" style="width:140px;">
+      <button id="importMelodyBtn">Import</button>
+    </div>
+    <div id="melody-status"></div>
+  </div>
+  <main id="main-content" style="display:none;">
     <h1>Send Email as Shirley</h1>
     <form id="emailForm" autocomplete="off">
       <div class="form-group">
@@ -23,8 +128,10 @@
         <label for="file" style="position:static;top:auto;left:auto;font-size:1rem;opacity:0.8;">Attachment (optional)</label>
       </div>
       <div class="form-group">
-        <textarea id="message" name="message" placeholder=" " required></textarea>
-        <label for="message">Message</label>
+        <textarea id="message" name="message" placeholder=" " required style="min-height:110px;resize:vertical;"></textarea>
+        <label for="message">Message (Markdown supported)</label>
+        <div class="content-length" id="contentLength">Character count: 0</div>
+        <div id="markdown-preview"></div>
       </div>
       <button type="submit" id="sendBtn">Send Email</button>
     </form>
@@ -34,5 +141,104 @@
     </footer>
   </main>
   <script src="script.js"></script>
+  <script>
+    // === Melody Lock Script (adapted) ===
+    const allowedMelodyHash = "e4a25ba5b1c669414746d9efdc533019e14bf8a86c288165de44bdcf791d4cfa"; // Copy your actual hash here
+    let melody = [];
+    function renderPiano() {
+      // Octave C4-B4 (60-71)
+      const notes = [60,62,64,65,67,69,71];
+      const names = ['C','D','E','F','G','A','B'];
+      let html = '';
+      for (let i=0; i<notes.length; ++i) {
+        html += `<div class="melody-key" data-note="${notes[i]}">${names[i]}</div>`;
+      }
+      document.getElementById('melody-piano').innerHTML = html;
+      document.querySelectorAll('#melody-piano .melody-key').forEach(el=>{
+        el.onclick = ()=>{
+          playNote(+el.dataset.note);
+          melody.push(+el.dataset.note);
+          updateMelodyBar();
+          el.classList.add('active');
+          setTimeout(()=>el.classList.remove('active'),120);
+        };
+      });
+    }
+    function playNote(midi) {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const freq = 440 * Math.pow(2, (midi-69)/12);
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.12, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.21);
+      o.connect(g).connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.21);
+      o.onended = ()=>ctx.close();
+    }
+    function updateMelodyBar() {
+      const bar = document.getElementById('melody-bar');
+      bar.innerHTML = '';
+      melody.forEach((m,i) => {
+        const span = document.createElement('span');
+        span.className = 'melody-pill';
+        span.textContent = noteName(m);
+        bar.appendChild(span);
+      });
+    }
+    function noteName(midi) {
+      const n=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+      return n[midi%12]+Math.floor(midi/12-1);
+    }
+    document.getElementById('melody-clear').onclick = ()=>{
+      melody=[];
+      updateMelodyBar();
+      document.getElementById('melody-status').textContent = '';
+    };
+    document.getElementById('melody-unlock').onclick = async ()=>{
+      if (!melody.length) { document.getElementById('melody-status').textContent = 'Play or import your melody!'; return; }
+      const bytes = new Uint8Array(melody);
+      const hashBuf = await window.crypto.subtle.digest('SHA-256', bytes);
+      const hashFull = Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      if (hashFull === allowedMelodyHash) {
+        document.getElementById('melody-lock').style.display = 'none';
+        document.getElementById('main-content').style.display = 'block';
+      } else {
+        document.getElementById('melody-status').textContent = 'Incorrect melody, try again.';
+      }
+    };
+    document.getElementById('importMelodyBtn').onclick = function() {
+      const pat = document.getElementById('importMelodyInput').value.trim();
+      if (!pat) return;
+      melody = pat.split('-').map(x=>parseInt(x,36)).filter(x=>!isNaN(x));
+      updateMelodyBar();
+      document.getElementById('melody-status').textContent = '';
+    };
+    // Hide main content until unlocked
+    document.getElementById('main-content').style.display = 'none';
+    document.getElementById('melody-lock').style.display = 'block';
+    renderPiano();
+
+    // === Markdown Preview for Email Message ===
+    const messageInput = document.getElementById('message');
+    const previewDiv = document.getElementById('markdown-preview');
+    const contentLengthDiv = document.getElementById('contentLength');
+    function updatePreview() {
+      const content = messageInput.value || '';
+      previewDiv.innerHTML = marked.parse(content);
+      contentLengthDiv.textContent = `Character count: ${content.length}`;
+      if (content.length > 8000) {
+        contentLengthDiv.classList.add('warning');
+        contentLengthDiv.textContent += " (Very long!)";
+      } else {
+        contentLengthDiv.classList.remove('warning');
+      }
+    }
+    messageInput.addEventListener('input', updatePreview);
+    // Initialize on page load
+    updatePreview();
+  </script>
 </body>
 </html>
