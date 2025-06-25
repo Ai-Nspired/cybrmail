@@ -20,12 +20,23 @@ form.addEventListener('submit', async (e) => {
   // Prepare payload
   let payload = { to, subject, text: message };
 
-  // Handle attachment as base64
+  // Handle attachment as base64 (safe for large files)
   if (fileInput.files.length > 0) {
     const file = fileInput.files[0];
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const base64String = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const base64String = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          // "reader.result" will be like "data:application/pdf;base64,JVBERi0xLjcK..."
+          // We only want the base64 part after the comma
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = () => {
+          reject(new Error('Error reading file as base64'));
+        };
+        reader.readAsDataURL(file);
+      });
       payload.attachment = {
         name: file.name,
         type: file.type || "application/octet-stream",
