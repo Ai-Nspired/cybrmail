@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CybrJustice Email Sender</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1>Send Email as Shirley</h1>
+    <form id="emailForm" autocomplete="off">
+      <div class="form-group">
+        <input type="email" id="to" name="to" placeholder=" " required />
+        <label for="to">To (email address)</label>
+      </div>
+      <div class="form-group">
+        <input type="text" id="subject" name="subject" placeholder=" " required />
+        <label for="subject">Subject</label>
+      </div>
+      <div class="form-group">
+        <input type="file" id="file" name="file" accept=".txt,.pdf,.doc,.docx,.rtf" />
+        <label for="file" style="position:static;top:auto;left:auto;font-size:1rem;opacity:0.8;">Attachment (optional)</label>
+      </div>
+      <div class="form-group">
+        <textarea id="message" name="message" placeholder=" " required></textarea>
+        <label for="message">Message</label>
+      </div>
+      <button type="submit" id="sendBtn">Send Email</button>
+    </form>
+    <pre class="status" id="status" aria-live="polite"></pre>
+    <footer>
+      <a href="https://github.com/dno-luigi/groove-ciphr" target="_blank" rel="noopener">View on GitHub</a>
+    </footer>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
