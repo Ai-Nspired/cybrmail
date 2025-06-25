@@ -8,7 +8,6 @@
   <!-- Add marked.js for Markdown parsing -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
-    /* Melody lock modal styles (can be adapted for your theme) */
     #melody-lock {
       background: rgba(10,23,35,0.90);
       border-radius: 18px;
@@ -16,7 +15,7 @@
       border: 1.5px solid #3377ff88;
       padding: 2.2rem 2rem 2rem 2rem;
       margin: 1rem auto 1.5rem auto;
-      max-width: 410px;
+      max-width: 480px;
       color: #f3fbff;
       display: none;
       animation: enter 0.6s cubic-bezier(.7,.36,0,1.17);
@@ -29,25 +28,70 @@
       margin-bottom: 1.2rem;
       color: #0ff1ce;
     }
-    .melody-key {
-      width: 44px; height: 44px;
-      border-radius: 50%;
-      background: linear-gradient(145deg,#eaf6ff 70%,#b4e2fa 100%);
-      border: 2.3px solid #3377ff;
-      color: #222;
-      font-weight: 700;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 1.13em;
-      cursor: pointer;
-      margin: 0 2px;
+    #melody-piano-row {
+      display: flex;
+      justify-content: center;
+      gap: 2px;
+      margin-bottom: 10px;
+      margin-top: 7px;
       user-select: none;
-      margin-bottom: 8px;
+    }
+    .melody-key {
+      width: 36px;
+      height: 75px;
+      border-radius: 5px 5px 7px 7px;
+      background: linear-gradient(180deg, #fff 85%, #e6e6e6 100%);
+      border: 1.7px solid #bbb;
+      box-sizing: border-box;
+      margin: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.13s, border-color 0.13s, box-shadow 0.14s;
+      box-shadow: 0 1px 6px #0032aa22;
+      position: relative;
+      font-size: 0;
+      outline: none;
     }
     .melody-key.active, .melody-key:active {
-      background: #ffe600;
-      color: #0055ff;
-      transform: scale(1.08);
+      background: linear-gradient(180deg, #ffe600 70%, #fff 100%);
+      border-color: #0ff1ce;
+      box-shadow: 0 0 0 2px #00eaff66, 0 2px 10px #0ff1ce22;
+      z-index: 2;
     }
+    .melody-key:focus {
+      outline: 2px solid #0ff1ce;
+    }
+    .melody-key:not(:last-child) {
+      margin-right: 2px;
+    }
+    .melody-keyboard-hint {
+      font-size:0.92em;
+      margin-top:4px;
+      opacity:0.75;
+      text-align:center;
+    }
+    .melody-btn-bar {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 10px;
+      margin-bottom: 7px;
+    }
+    .melody-btn-bar button {
+      padding: 7px 20px;
+      font-size: 1em;
+      border-radius: 6px;
+      background: var(--btn-bg, linear-gradient(90deg, #0ff1ce 0%, #0069ff 100%));
+      color: #011;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 8px #0032aa19;
+      transition: background 0.18s, color 0.09s;
+    }
+    .melody-btn-bar button:hover { background: #00aaff; color: #fff;}
     .melody-pill {
       display: inline-block;
       background: #00eaff;
@@ -62,12 +106,14 @@
     #melody-bar {
       margin: 10px 0 10px 0;
       min-height: 22px;
+      text-align: center;
     }
     #melody-status {
       color: #ff5050;
       font-weight: bold;
       margin-top: 10px;
       min-height: 22px;
+      text-align: center;
     }
     /* Markdown preview styling */
     #markdown-preview {
@@ -92,6 +138,15 @@
     .content-length.warning {
       color: #ff5d8f;
     }
+    @media (max-width: 610px) {
+      #melody-piano-row {
+        gap: 1px;
+      }
+      .melody-key {
+        width: 24px;
+        height: 56px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -100,13 +155,19 @@
     <h2>🔒 Melody Lock</h2>
     <div style="background:rgba(0,90,255,0.09);color:#afe9ff;font-size:1.08em;border-radius:7px;padding:10px 14px;margin-bottom:16px;">
       <b>Step 1:</b> Play your secret melody or paste its pattern.<br>
-      <b>Step 2:</b> Click <b>Unlock</b>.
+      <b>Step 2:</b> Click <b>Unlock</b>.<br>
+      <b>PgUp/PgDn</b>: Octave. <b>Backspace</b>: Erase last note.
     </div>
-    <div id="melody-piano"></div>
-    <button id="melody-clear" style="margin-top:10px;margin-bottom:5px;">Clear Melody</button>
-    <button id="melody-unlock" style="margin-left:10px;">Unlock</button>
+    <div id="melody-piano-row"></div>
+    <div class="melody-keyboard-hint">
+      Keyboard: QWERTYUIOP[]\ = white keys (C4–A5)
+    </div>
+    <div class="melody-btn-bar">
+      <button id="melody-clear">Clear Melody</button>
+      <button id="melody-unlock">Unlock</button>
+    </div>
     <div id="melody-bar"></div>
-    <div style="margin-top:10px;">
+    <div style="margin-top:10px; text-align:center;">
       <input type="text" id="importMelodyInput" placeholder="Pattern e.g. 40-43-45" style="width:140px;">
       <button id="importMelodyBtn">Import</button>
     </div>
@@ -142,28 +203,93 @@
   </main>
   <script src="script.js"></script>
   <script>
-    // === Melody Lock Script (adapted) ===
-    const allowedMelodyHash = "e4a25ba5b1c669414746d9efdc533019e14bf8a86c288165de44bdcf791d4cfa"; // Copy your actual hash here
+    // === Expanded Melody Lock Script with QWERTYUIOP[]\ and octave control ===
+    const allowedMelodyHash = "e4a25ba5b1c669414746d9efdc533019e14bf8a86c288165de44bdcf791d4cfa"; // Your hash
     let melody = [];
-    function renderPiano() {
-      // Octave C4-B4 (60-71)
-      const notes = [60,62,64,65,67,69,71];
-      const names = ['C','D','E','F','G','A','B'];
-      let html = '';
-      for (let i=0; i<notes.length; ++i) {
-        html += `<div class="melody-key" data-note="${notes[i]}">${names[i]}</div>`;
-      }
-      document.getElementById('melody-piano').innerHTML = html;
-      document.querySelectorAll('#melody-piano .melody-key').forEach(el=>{
-        el.onclick = ()=>{
-          playNote(+el.dataset.note);
-          melody.push(+el.dataset.note);
-          updateMelodyBar();
-          el.classList.add('active');
-          setTimeout(()=>el.classList.remove('active'),120);
-        };
-      });
+    let baseOctave = 4; // C4 is MIDI 60
+    // The pattern of keys for QWERTYUIOP[]\ mapping to white keys, starting from C
+    const keyOrder = [
+      { key: 'Q', note: 0 },  // C
+      { key: 'W', note: 2 },  // D
+      { key: 'E', note: 4 },  // E
+      { key: 'R', note: 5 },  // F
+      { key: 'T', note: 7 },  // G
+      { key: 'Y', note: 9 },  // A
+      { key: 'U', note: 11 }, // B
+      { key: 'I', note: 12 }, // C (next octave)
+      { key: 'O', note: 14 }, // D
+      { key: 'P', note: 16 }, // E
+      { key: '[', note: 17 }, // F
+      { key: ']', note: 19 }, // G
+      { key: '\\', note: 21 } // A
+    ];
+    function getMidiForKey(k, baseOct) {
+      // baseOctave is where C = 12*octave
+      let found = keyOrder.find(x => x.key === k);
+      if (!found) return null;
+      return 12*baseOct + found.note;
     }
+    function renderPiano() {
+      const container = document.getElementById('melody-piano-row');
+      container.innerHTML = '';
+      for (let i=0; i<keyOrder.length; ++i) {
+        const midi = getMidiForKey(keyOrder[i].key, baseOctave);
+        const btn = document.createElement('button');
+        btn.className = 'melody-key';
+        btn.setAttribute('data-note', midi);
+        btn.setAttribute('tabindex', '0');
+        btn.onclick = ()=>{
+          playNote(midi);
+          melody.push(midi);
+          updateMelodyBar();
+          btn.classList.add('active');
+          setTimeout(()=>btn.classList.remove('active'),120);
+        };
+        // No inner text (no marking)
+        container.appendChild(btn);
+      }
+    }
+    // Keyboard support
+    document.addEventListener('keydown', e => {
+      if (document.getElementById('melody-lock').style.display === 'none') return;
+      let key = e.key;
+      if (/^[a-z]$/i.test(key)) key = key.toUpperCase();
+      if (key === 'Backspace') {
+        if (melody.length > 0) {
+          melody.pop();
+          updateMelodyBar();
+        }
+        e.preventDefault();
+        return;
+      }
+      if (key === 'PageUp') {
+        if (baseOctave < 7) baseOctave++;
+        renderPiano();
+        e.preventDefault();
+        return;
+      }
+      if (key === 'PageDown') {
+        if (baseOctave > 1) baseOctave--;
+        renderPiano();
+        e.preventDefault();
+        return;
+      }
+      // Special for backslash as key event
+      if (key === '\\' || key === '|') key = '\\';
+      const midi = getMidiForKey(key, baseOctave);
+      if (midi !== null && midi !== undefined) {
+        playNote(midi);
+        melody.push(midi);
+        updateMelodyBar();
+        // Animate the visual key
+        const el = document.querySelector(`.melody-key[data-note="${midi}"]`);
+        if (el) {
+          el.classList.add('active');
+          setTimeout(() => el.classList.remove('active'), 120);
+        }
+        e.preventDefault();
+      }
+    });
     function playNote(midi) {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const freq = 440 * Math.pow(2, (midi-69)/12);
@@ -237,7 +363,6 @@
       }
     }
     messageInput.addEventListener('input', updatePreview);
-    // Initialize on page load
     updatePreview();
   </script>
 </body>
